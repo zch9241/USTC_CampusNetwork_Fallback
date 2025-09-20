@@ -38,7 +38,6 @@ EXPORT_PORTS_INFO = {
 }
 current_port_index = 0  # 当前使用的端口索引
 
-
 def check_network():
     try:
         resp = requests.get("https://www.baidu.com")
@@ -158,6 +157,7 @@ def fallback(max_retries=5):
         else:
             logger.warning("登录失败，请检查用户名和密码")
             logger.warning(resp.text)
+            return False
 
         # 设置出口和租期
         session.get(f"http://wlt.ustc.edu.cn/cgi-bin/ip?cmd=set&url=URL&type={current_export}&exp=0&go=+%BF%AA%CD%A8%CD%F8%C2%E7+")
