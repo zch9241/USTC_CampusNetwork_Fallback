@@ -1,28 +1,39 @@
 # author: chaosz
 import logging
 import time
+import subprocess
+import sys
 
 import requests
 from lxml import html
 
 from auth import NAME, PASSWORD
 
+class InfoFilter(logging.Filter):
+    def filter(self, record):
+        # 只允许 levelno 小于 30 (即 INFO=20 和 DEBUG=10) 的记录通过。
+        return record.levelno < logging.WARNING
 
-logger = logging.getLogger("USTC_Network_Fallback")
+logger = logging.getLogger("USTC_CampusNetwork_Fallback")
 logger.setLevel(logging.DEBUG)
 
-file_handler = logging.FileHandler('USTC_Network_Fallback.log', encoding='utf-8')
-file_handler.setLevel(logging.DEBUG)
+# file_handler = logging.FileHandler('USTC_Network_Fallback.log', encoding='utf-8')
+# file_handler.setLevel(logging.DEBUG)
 
-stream_handler = logging.StreamHandler()
-stream_handler.setLevel(logging.INFO)
+stdout_handler = logging.StreamHandler(sys.stdout)
+stdout_handler.setLevel(logging.DEBUG)
+stdout_handler.addFilter(InfoFilter())
+stderr_handler = logging.StreamHandler(sys.stderr)
+stderr_handler.setLevel(logging.WARNING)
 
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(formatter)
-stream_handler.setFormatter(formatter)
+# file_handler.setFormatter(formatter)
+stdout_handler.setFormatter(formatter)
+stderr_handler.setFormatter(formatter)
 
-logger.addHandler(file_handler)
-logger.addHandler(stream_handler)
+# logger.addHandler(file_handler)
+logger.addHandler(stdout_handler)
+logger.addHandler(stderr_handler)
 
 # 网络出口配置
 EXPORT_PORTS = ["1", "2", "3", "4", "5", "6", "7", "8"]
@@ -39,8 +50,9 @@ EXPORT_PORTS_INFO = {
 current_port_index = 0  # 当前使用的端口索引
 
 def check_network():
+    # 弃用
     try:
-        resp = requests.get("https://www.baidu.com")
+        resp = requests.get("https://www.baidu.com", timeout=10)
         if resp.status_code == 200:
             logger.info("网络正常")
             return True
@@ -49,6 +61,19 @@ def check_network():
             return False
     except requests.exceptions.ConnectionError as e:
         logger.info(f"网络错误：{e}")
+        return False
+def _check_network():
+    target_ip = "8.8.8.8"
+    
+    command = ["ping", "-c", "1", "-W", "10", target_ip]
+
+    result = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)        # 隐藏输出
+
+    if result.returncode == 0:
+        logger.info(f"网络正常")
+        return True
+    else:
+        logger.info(f"网络错误 (ping {target_ip} 失败，返回值: {result.returncode})")
         return False
 
 def check_status(status):
@@ -173,7 +198,7 @@ def fallback(max_retries=5):
         else:
             logger.info("网络设置成功，开始检测连通性...")
             # 检测连通性
-            if not check_network():
+            if not _check_network():
                 return False
             else:
                 return True
@@ -183,7 +208,7 @@ def fallback(max_retries=5):
 
 if __name__ == "__main__":    
     while True:
-        network_status = check_network()
+        network_status = _check_network()
         if not network_status:
             logger.info("检测到网络异常，开始尝试登录...")
             # 尝试所有端口
