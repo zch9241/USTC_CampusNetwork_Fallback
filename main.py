@@ -62,19 +62,22 @@ def check_network():
     except requests.exceptions.ConnectionError as e:
         logger.info(f"网络错误：{e}")
         return False
-def _check_network():
-    target_ip = "8.8.8.8"
-    
+def _check_network(retries=5):
+    target_ip = "8.8.8.8" 
     command = ["ping", "-c", "1", "-W", "10", target_ip]
+    
+    for i in range(retries):
+        result = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)        # 隐藏输出
 
-    result = subprocess.run(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)        # 隐藏输出
+        if result.returncode == 0:
+            logger.info(f"网络正常")
+            return True
+        logger.info(f"网络错误 (ping {target_ip} 失败), 重试({i}/{5})")
+        time.sleep(30)
 
-    if result.returncode == 0:
-        logger.info(f"网络正常")
-        return True
-    else:
-        logger.info(f"网络错误 (ping {target_ip} 失败，返回值: {result.returncode})")
-        return False
+    logger.info(f"网络错误 (ping {target_ip} 失败，返回值: {result.returncode})")
+    return False
+    
 
 def check_status(status):
     display_port_info = status[1][3:].strip()
